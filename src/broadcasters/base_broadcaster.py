@@ -1,6 +1,7 @@
 import websockets
 import asyncio
 from abc import ABC, abstractmethod
+import json
 
 
 class BaseBroadcaster(ABC):
@@ -13,7 +14,6 @@ class BaseBroadcaster(ABC):
         self.timeout = timeout
 
     def start_server(self):
-
         asyncio.run(self.server_initializer())
 
     async def server_initializer(self):
@@ -37,9 +37,9 @@ class BaseBroadcaster(ABC):
                 print(e)
                 message = {"error": e}
 
-            await asyncio.gather(*[client.send(message) for client in self.clients],
+            await asyncio.gather(*[client.send(json.dumps(message)) for client in self.clients],
                                  return_exceptions=True)
 
     @abstractmethod
-    async def create_message():
+    async def create_message() -> dict:
         pass

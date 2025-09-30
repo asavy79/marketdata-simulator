@@ -62,7 +62,7 @@ Connect to `ws://localhost:8765` to receive order updates. Each message contains
 
 ```json
 {
-    "type": "Buy" | "Sell",
+    "type": "Buy" / "Sell",
     "price": 15.67,
     "quantity": 25,
     "ticker": "QNTX",
