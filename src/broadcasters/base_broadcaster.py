@@ -25,6 +25,15 @@ class BaseBroadcaster(ABC):
 
     async def handler(self, websocket):
         self.clients.add(websocket)
+        try:
+            
+            await websocket.wait_closed()
+        except websockets.exceptions.ConnectionClosed:
+         print("Connection closed by client")
+        finally:
+            self.clients.remove(websocket)
+            print(f"Client disconnected. Total clients: {len(self.clients)}")
+
 
     async def broadcast_periodic(self):
         while True:
@@ -41,5 +50,5 @@ class BaseBroadcaster(ABC):
                                  return_exceptions=True)
 
     @abstractmethod
-    async def create_message() -> dict:
+    def create_message(self) -> dict:
         pass

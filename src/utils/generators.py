@@ -3,13 +3,9 @@ from enum import Enum
 from datetime import datetime
 
 
-class OrderTypes(Enum):
-    BUY = 'Buy'
-    SELL = 'Sell'
-
 
 def create_random_order(price_lower_bound, price_upper_bound, ticker):
-    order_type = np.random.choice([OrderTypes.BUY, OrderTypes.SELL])
+    order_type = np.random.choice(["Buy", "Sell"])
 
     price = np.round(np.random.uniform(
         price_lower_bound, price_upper_bound), 2)
@@ -21,5 +17,5 @@ def create_random_order(price_lower_bound, price_upper_bound, ticker):
         'price': price,
         'quantity': quantity,
         'ticker': ticker,
-        'timestamp': datetime.now()
+        'timestamp': datetime.now().isoformat()
     }
