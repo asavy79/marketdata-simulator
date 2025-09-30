@@ -1,7 +1,6 @@
 from src.broadcasters.base_broadcaster import BaseBroadcaster
 import numpy as np
-import time
-from src.utils.generators import create_random_order
+from datetime import datetime
 
 
 class OrderBroadcaster(BaseBroadcaster):
@@ -12,4 +11,20 @@ class OrderBroadcaster(BaseBroadcaster):
         self.ticker = ticker
 
     def create_message(self):
-        return create_random_order(self.price_lower_bound, self.price_upper_bound, self.ticker)
+        return self.create_random_order()
+
+    def create_random_order(self):
+        order_type = np.random.choice(["Buy", "Sell"])
+
+        price = np.round(np.random.uniform(
+            self.price_lower_bound, self.price_upper_bound), 2)
+
+        quantity = np.random.randint(1, 50)
+
+        return {
+            'type': order_type,
+            'price': price,
+            'quantity': quantity,
+            'ticker': self.ticker,
+            'timestamp': datetime.now().isoformat()
+        }

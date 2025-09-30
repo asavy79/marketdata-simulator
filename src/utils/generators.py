@@ -1,7 +1,5 @@
 import numpy as np
-from enum import Enum
 from datetime import datetime
-
 
 
 def create_random_order(price_lower_bound, price_upper_bound, ticker):

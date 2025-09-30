@@ -29,7 +29,7 @@ class BaseBroadcaster(ABC):
             
             await websocket.wait_closed()
         except websockets.exceptions.ConnectionClosed:
-         print("Connection closed by client")
+            print("Connection closed by client")
         finally:
             self.clients.remove(websocket)
             print(f"Client disconnected. Total clients: {len(self.clients)}")
