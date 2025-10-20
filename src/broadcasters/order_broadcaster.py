@@ -1,6 +1,7 @@
 from src.broadcasters.base_broadcaster import BaseBroadcaster
 import numpy as np
 from datetime import datetime
+from uuid import uuid4
 
 
 class OrderBroadcaster(BaseBroadcaster):
@@ -9,6 +10,7 @@ class OrderBroadcaster(BaseBroadcaster):
         self.price_lower_bound = price_lower_bound
         self.price_upper_bound = price_upper_bound
         self.ticker = ticker
+        self.orders = []
 
     def create_message(self):
         return self.create_random_order()
@@ -21,10 +23,21 @@ class OrderBroadcaster(BaseBroadcaster):
 
         quantity = np.random.randint(1, 50)
 
-        return {
+        order = {
+            'id': uuid4().hex,
             'type': order_type,
             'price': price,
             'quantity': quantity,
             'ticker': self.ticker,
             'timestamp': datetime.now().isoformat()
         }
+
+        self.orders.append(order)
+
+        return {'order': order, 'type': 'update'}
+
+    async def initial_connection_action(self, client):
+        await self.broadcast_batch(client)
+
+    def create_batch_message(self):
+        return {'orders': self.orders, 'type': 'batch'}
