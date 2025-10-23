@@ -26,13 +26,15 @@ class BaseBroadcaster(ABC):
     async def handler(self, websocket):
         self.clients.add(websocket)
         await self.initial_connection_action(client=websocket)
+
         try:
-            await websocket.wait_closed()
+            async for raw in websocket:
+                msg = json.loads(raw)
+                await self.on_message(msg, websocket)
         except websockets.exceptions.ConnectionClosed:
-            print("Connection closed by client")
+            pass
         finally:
-            self.clients.remove(websocket)
-            print(f"Client disconnected. Total clients: {len(self.clients)}")
+            self.clients.discard(websocket)
 
     async def broadcast_periodic(self):
         while True:
@@ -44,8 +46,13 @@ class BaseBroadcaster(ABC):
                 print(e)
                 message = {"error": e}
 
-            await asyncio.gather(*[client.send(json.dumps(message)) for client in self.clients],
-                                 return_exceptions=True)
+            await self.broadcast_message(message)
+            # asyncio.gather(*[client.send(json.dumps(message)) for client in self.clients],
+            #                      return_exceptions=True)
+
+    async def broadcast_message(self, message):
+        await asyncio.gather(*[client.send(json.dumps(message)) for client in self.clients],
+                             return_exceptions=True)
 
     async def broadcast_batch(self, client):
         message = self.create_batch_message()
@@ -62,4 +69,8 @@ class BaseBroadcaster(ABC):
 
     @abstractmethod
     def create_message(self) -> dict:
+        pass
+
+    @abstractmethod
+    def on_message(self, msg, websocket):
         pass

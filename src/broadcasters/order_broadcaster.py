@@ -5,11 +5,12 @@ from uuid import uuid4
 
 
 class OrderBroadcaster(BaseBroadcaster):
-    def __init__(self, host, port, interval, price_lower_bound, price_upper_bound, ticker):
+    def __init__(self, host, port, interval, price_lower_bound, price_upper_bound, ticker, rbac_system=None):
         super().__init__(host, port, interval)
         self.price_lower_bound = price_lower_bound
         self.price_upper_bound = price_upper_bound
         self.ticker = ticker
+        self.rbac_system = rbac_system
         self.orders = []
 
     def create_message(self):
@@ -29,6 +30,7 @@ class OrderBroadcaster(BaseBroadcaster):
             'price': price,
             'quantity': quantity,
             'ticker': self.ticker,
+            'user_id': 'trading.bot@colorado.edu',
             'timestamp': datetime.now().isoformat()
         }
 
@@ -41,3 +43,30 @@ class OrderBroadcaster(BaseBroadcaster):
 
     def create_batch_message(self):
         return {'orders': self.orders, 'type': 'batch'}
+
+    async def on_message(self, msg, websocket):
+        message_type = msg.get("type", None)
+
+        if not message_type:
+            # handle error more gracefully here
+            return
+
+        elif message_type == "order":
+            order = message_type.get("order", None)
+            if not order:
+                # again handle error later
+                return
+            else:
+                user_id = msg.get("user_id", None)
+                # implement rbac and order validation
+                # valid_order = self.rbac_system.validate_order(user_id, order)
+                # if not valid_order:
+                #     self.broadcast_message(
+                #         {"type": "error", "message": "Unable to process order!"})
+                # return
+
+                self.orders.append(order)
+                await self.broadcast_message({"type": "update", "order": order})
+        else:
+            # implement logic for other message types
+            pass
