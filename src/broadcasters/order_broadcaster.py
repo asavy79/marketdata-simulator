@@ -5,12 +5,12 @@ from uuid import uuid4
 
 
 class OrderBroadcaster(BaseBroadcaster):
-    def __init__(self, host, port, interval, price_lower_bound, price_upper_bound, ticker, rbac_system=None):
+    def __init__(self, host, port, interval, price_lower_bound, price_upper_bound, ticker, auth_service):
         super().__init__(host, port, interval)
         self.price_lower_bound = price_lower_bound
         self.price_upper_bound = price_upper_bound
         self.ticker = ticker
-        self.rbac_system = rbac_system
+        self.auth_service = auth_service
         self.orders = []
 
     def create_message(self):
@@ -52,19 +52,23 @@ class OrderBroadcaster(BaseBroadcaster):
             return
 
         elif message_type == "order":
-            order = message_type.get("order", None)
+            token = msg.get("token")
+            response = self.auth_service.validate_token(token)
+
+            if not response.get("status", False):
+                # gracefully handle error
+                pass
+
+            user_id = response.get("user_id")
+
+            order = msg.get("order", None)
+
             if not order:
                 # again handle error later
                 return
             else:
                 user_id = msg.get("user_id", None)
-                # implement rbac and order validation
-                # valid_order = self.rbac_system.validate_order(user_id, order)
-                # if not valid_order:
-                #     self.broadcast_message(
-                #         {"type": "error", "message": "Unable to process order!"})
-                # return
-
+                order["user_id"] = user_id
                 self.orders.append(order)
                 await self.broadcast_message({"type": "update", "order": order})
         else:
