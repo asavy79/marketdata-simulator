@@ -1,5 +1,5 @@
 from src.broadcasters.order_broadcaster import OrderBroadcaster
-from src.services.firebase_auth_service import FirebaseAuth
+from src.services.auth.firebase_auth_service import FirebaseAuth
 
 
 if __name__ == "__main__":

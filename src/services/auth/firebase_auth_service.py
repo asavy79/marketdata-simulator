@@ -1,4 +1,4 @@
-from src.services.auth_service import AuthService
+from src.services.auth.auth_service import AuthService
 from firebase_admin import auth, credentials
 import firebase_admin
 
