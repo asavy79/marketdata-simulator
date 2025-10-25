@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import uuid4
 from src.services.auth_service import AuthService
 import json
+import asyncio
 
 
 class OrderBroadcaster(BaseBroadcaster):
@@ -61,7 +62,7 @@ class OrderBroadcaster(BaseBroadcaster):
                 error_type, error_message = response.get(
                     "error_code", None), response.get("error_message", None)
                 print(f"ERROR: {error_type}, {error_message}")
-                await websocket.send(json.dumps({"error_type": error_type, "error_message": error_message}))
+                await websocket.send(json.dumps({"type": "error", "error_type": error_type, "error_message": error_message}))
                 return
 
             order = msg.get("order", None)
@@ -73,7 +74,7 @@ class OrderBroadcaster(BaseBroadcaster):
             else:
                 price = order.get("price")
                 if price <= 0:
-                    await websocket.send(json.dumps({"error_type": "VALUE_ERROR", "error_message": "Price must be positive"}))
+                    await websocket.send(json.dumps({"type": "error", "error_type": "VALUE_ERROR", "error_message": "Price must be positive"}))
                     return
                 user_id = response.get("user_id", None)
                 order["user_id"] = user_id
@@ -81,7 +82,11 @@ class OrderBroadcaster(BaseBroadcaster):
                 order['ticker'] = 'QNTX'
                 self.orders.append(order)
                 print("PLACING ORDER")
-                await self.broadcast_message({"type": "update", "order": order})
+                await asyncio.gather(
+                    websocket.send(json.dumps(
+                        {"type": "order_success", "message": "Order placed successfully"})),
+                    self.broadcast_message({"type": "update", "order": order})
+                )
         else:
             # implement logic for other message types
             pass
