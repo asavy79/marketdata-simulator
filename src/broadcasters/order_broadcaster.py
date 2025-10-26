@@ -5,18 +5,32 @@ from uuid import uuid4
 from src.services.auth.auth_service import AuthService
 import json
 import asyncio
+from typing import List
+from websockets.asyncio.server import ServerConnection
 
 
 class OrderBroadcaster(BaseBroadcaster):
-    def __init__(self, host, port, interval: float, price_lower_bound: float, price_upper_bound: float, ticker: str, auth_service: AuthService):
+    def __init__(self, host, port, interval: float, price_lower_bound: float, price_upper_bound: float, ticker: str, auth_service: AuthService, tickers: List[str]):
         super().__init__(host, port, interval)
         self.price_lower_bound = price_lower_bound
         self.price_upper_bound = price_upper_bound
         self.ticker = ticker
         self.auth_service = auth_service
+
         self.orders = []
+        self.order_map = self.create_ticker_map(tickers)
+
+        self.client_subscriptions = self.create_subscription_map(tickers)
 
         self.orders_lock = asyncio.Lock()
+
+    def create_ticker_map(self, tickers: List[str]):
+        ticker_map = {}
+        for ticker in tickers:
+            ticker_map[ticker] = {"bids": {}, "asks": {}}
+
+    def create_subscription_map(self, tickers: List[str]):
+        return {ticker: set() for ticker in tickers}
 
     async def create_message(self):
         order = await self.create_random_order()
@@ -45,49 +59,32 @@ class OrderBroadcaster(BaseBroadcaster):
 
         return {'order': order, 'type': 'update'}
 
-    async def initial_connection_action(self, client):
-        await self.broadcast_batch(client)
+    async def initial_connection_action(self, client: ServerConnection):
+        ticker = self.extract_ticker(client)
+        if not ticker:
+            await self.send_error(client, "ROOM_ERROR", "Ticker string not provided!")
+        elif ticker not in self.client_subscriptions:
+            await self.send_error(client, "INVALID_TICKER", f"Ticker: {ticker} is invalid")
+        else:
+            self.client_subscriptions[ticker].add(client)
+            await self.broadcast_batch(client)
+
+    def extract_ticker(self, client: ServerConnection):
+        try:
+            raw_url = client.request.path
+            ticker = raw_url.split("/")[-1].upper()
+            print(ticker)
+            return ticker
+        except Exception as e:
+            print(e)
+            return None
 
     async def create_batch_message(self):
         async with self.orders_lock:
             order_snapshot = self.orders.copy()
         return {'orders': order_snapshot, 'type': 'batch'}
 
-    def validate_order(self, msg):
-        token = msg.get("token", None)
-        response = self.auth_service.validate_token(token)
-
-        error_type, error_message = None, None
-
-        if response.get("success", False) == False:
-            error_type, error_message = response.get(
-                "error_code", None), response.get("error_message", None)
-            response = {"type": "error", "error_type": error_type,
-                        "error_message": error_message}
-        elif not msg.get("order", None):
-            error_type, error_message = "INVALID_ORDER", "Must place a full order"
-        else:
-            user_id = response.get("user_id")
-            order = msg.get("order")
-            price = order.get("price")
-            if price <= 0:
-                error_type, error_message = "INVALID_ORDER", "Order price must be greater than 0"
-            elif not self.auth_service.validate_user_order(user_id, price, order.get("type")):
-                error_type, error_message = "INVALID_ORDER", "User is not able to place this order"
-
-        return error_type, error_message
-
-    async def send_error(self, websocket, error_type: str, error_message: str):
-        """Centralized error response sender"""
-        error_response = {
-            "type": "error",
-            "error_type": error_type,
-            "error_message": error_message,
-            "timestamp": datetime.now().isoformat()
-        }
-        await websocket.send(json.dumps(error_response))
-
-    async def on_message(self, msg, websocket):
+    async def on_message(self, msg: dict, websocket: ServerConnection):
         message_type = msg.get("type", None)
 
         if not message_type:
@@ -97,9 +94,9 @@ class OrderBroadcaster(BaseBroadcaster):
         elif message_type == "order":
             await self.handle_order(websocket, msg)
         else:
-            pass
+            await self.send_error(websocket, "INVALID_MESSAGE_TYPE", "Message type is invalid")
 
-    async def handle_order(self, websocket, msg):
+    async def handle_order(self, websocket: ServerConnection, msg: dict):
         token = msg.get("token", None)
         response = self.auth_service.validate_token(token)
 
@@ -113,7 +110,7 @@ class OrderBroadcaster(BaseBroadcaster):
         order = msg.get("order", None)
 
         if not order:
-            print("NO ORDER")
+            await self.send_error(websocket, "NO_ORDER", "Order field must be present")
             return
 
         else:
@@ -127,7 +124,6 @@ class OrderBroadcaster(BaseBroadcaster):
         order['ticker'] = 'QNTX'
         async with self.orders_lock:
             self.orders.append(order)
-        print("PLACING ORDER")
         await asyncio.gather(
             websocket.send(json.dumps(
                 {"type": "order_success", "message": "Order placed successfully"})),
