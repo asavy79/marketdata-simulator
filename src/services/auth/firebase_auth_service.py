@@ -48,3 +48,10 @@ class FirebaseAuth(AuthService):
                 "error": "Authentication failed. Please try again.",
                 "error_code": "AUTH_ERROR"
             }
+
+    def validate_user_order(self, user_id, order_amount, side):
+        """
+        To implement:
+        Checks to see if user is able to make a specific order
+        """
+        return True

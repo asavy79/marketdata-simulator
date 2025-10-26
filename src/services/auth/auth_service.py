@@ -13,3 +13,7 @@ class AuthService(ABC):
         May also return an error object with a specific error message
         """
         pass
+
+    @abstractmethod
+    def validate_user_order(self, user_id, order_amount, side):
+        pass

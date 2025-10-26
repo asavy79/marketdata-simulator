@@ -13,6 +13,8 @@ class BaseBroadcaster(ABC):
         self.clients = set()
         self.timeout = timeout
 
+        self.clients_lock = asyncio.Lock()
+
     def start_server(self):
         asyncio.run(self.server_initializer())
 
@@ -24,7 +26,8 @@ class BaseBroadcaster(ABC):
             await asyncio.Future()
 
     async def handler(self, websocket):
-        self.clients.add(websocket)
+        async with self.clients_lock:
+            self.clients.add(websocket)
         await self.initial_connection_action(client=websocket)
 
         try:
@@ -35,13 +38,14 @@ class BaseBroadcaster(ABC):
             pass
         finally:
             print("Client disconnected")
-            self.clients.discard(websocket)
+            async with self.clients_lock:
+                self.clients.discard(websocket)
 
     async def broadcast_periodic(self):
         while True:
             await asyncio.sleep(self.interval)
             try:
-                message = self.create_message()
+                message = await self.create_message()
                 print(message)
             except Exception as e:
                 print(e)
@@ -50,12 +54,13 @@ class BaseBroadcaster(ABC):
             await self.broadcast_message(message)
 
     async def broadcast_message(self, message):
-        await asyncio.gather(*[client.send(json.dumps(message)) for client in self.clients],
+        async with self.clients_lock:
+            clients_copy = self.clients.copy()
+        await asyncio.gather(*[client.send(json.dumps(message)) for client in clients_copy],
                              return_exceptions=True)
 
     async def broadcast_batch(self, client):
-        message = self.create_batch_message()
-        # await client.send(json.dumps(message))
+        message = await self.create_batch_message()
         await client.send(json.dumps(message))
 
     @ abstractmethod
@@ -63,11 +68,11 @@ class BaseBroadcaster(ABC):
         pass
 
     @ abstractmethod
-    def create_batch_message(self):
+    async def create_batch_message(self):
         pass
 
     @ abstractmethod
-    def create_message(self) -> dict:
+    async def create_message(self) -> dict:
         pass
 
     @ abstractmethod
