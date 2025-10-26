@@ -1,81 +1,120 @@
-# Order Simulator
+# QuantX Order Simulator
 
-A WebSocket-based order simulator that generates and broadcasts random trading orders for testing and development purposes.
+A WebSocket-based order simulator with Firebase authentication, real-time order broadcasting, and orderbook management. This project is a part of the CUQuants QuantX platform, a system that helps educate members on market dynamics.
 
 ## Overview
 
-This project simulates trading orders by generating random buy/sell orders with configurable price ranges and broadcasting them to connected WebSocket clients. It's designed to help test trading applications and orderbook systems.
+The QuantX Order Simulator is a service that simulates trading environments by:
+
+- Generating and broadcasting random trading orders
+- Managing real-time orderbook state
+- Handling authenticated user orders via Firebase
+- Supporting multiple ticker subscriptions
+- Providing comprehensive order validation and error handling
 
 ## Features
 
-- WebSocket server for real-time order broadcasting
-- Configurable price ranges and ticker symbols
-- Random order generation (buy/sell orders with price, quantity, and timestamp)
-- Periodic broadcasting at configurable intervals
-- Support for multiple connected clients
+### Core Functionality
+
+- **Real-time WebSocket Server** - High-performance async WebSocket server
+- **Authenticated Order Placement** - Firebase JWT token validation for user orders
+- **Automatic Order Generation** - Configurable random order simulation
+- **Orderbook Management** - Live bid/ask tracking with price-level aggregation
+- **Multi-ticker Support** - Subscribe to specific trading symbols
+- **Batch Data Delivery** - Initial orderbook snapshots for new connections
+
+### Architecture
+
+- **Modular Design** - Abstract base broadcaster for extensibility
+- **Async/Await** - Modern Python asyncio for high concurrency
+- **Thread-safe Operations** - Proper locking for concurrent order processing
+- **Subscription Management** - Per-ticker client subscription tracking
 
 ## Requirements
 
-- Python 3.7+
-- websockets
-- numpy
+- **Python 3.8+**
+- **Firebase Admin SDK**
+- **WebSockets library**
+- **NumPy**
 
 ## Installation
 
-1. Clone or download the project
-2. Install dependencies:
+1. **Clone the repository**
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   git clone https://github.com/asavy79/marketdata-simulator.git
+   cd order-simulator
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configure Firebase**
+   - Place your Firebase service account JSON file as `service-account.json` in the project root
+   - Ensure your Firebase project has authentication enabled
 
 ## Usage
 
-### Basic Usage
+### Quick Start
 
-Run the simulator with default settings:
+Start the simulator with default configuration:
 
 ```bash
 python -m src.main
 ```
 
-This will start a WebSocket server on `localhost:8765` that broadcasts random QNTX orders every second with prices between $10-20.
+This launches a WebSocket server on `ws://localhost:8765` that:
+
+- Broadcasts random QNTX orders every 30 seconds
+- Accepts authenticated user orders
+- Maintains live orderbook state in memory
+
+### WebSocket Connection
+
+#### Subscribe to a Ticker
+
+Connect to `ws://localhost:8765/QNTX` to subscribe to QNTX orders.
 
 ### Configuration
 
-The simulator can be configured by modifying the parameters in `src/main.py`:
+Modify `src/main.py` to customize the simulator:
 
 ```python
 order_broadcaster = OrderBroadcaster(
-    host="localhost",           # WebSocket server host
-    port=8765,                 # WebSocket server port
-    interval=1,                # Broadcast interval in seconds
-    price_lower_bound=10,      # Minimum order price
-    price_upper_bound=20,      # Maximum order price
-    ticker="QNTX"             # Stock ticker symbol
+    host="localhost",              # WebSocket server host
+    port=8765,                    # WebSocket server port
+    interval=30,                  # Broadcast interval (seconds)
+    price_lower_bound=10,         # Minimum order price
+    price_upper_bound=20,         # Maximum order price
+    ticker="QNTX",               # Primary ticker symbol
+    auth_service=auth_service,    # Firebase auth service
+    tickers=["QNTX"]             # Supported ticker list
 )
 ```
 
-### Connecting to the WebSocket
+### Project Structure
 
-Connect to `ws://localhost:8765` to receive order updates. Each message contains:
+```
+src/
+├── broadcasters/
+│   ├── base_broadcaster.py      # Abstract WebSocket broadcaster
+│   └── order_broadcaster.py     # Trading order implementation
+├── services/
+│   └── auth/
+│       ├── auth_service.py      # Authentication interface
+│       └── firebase_auth_service.py  # Firebase implementation
+├── utils/
+│   └── generators.py           # Order generation utilities
+└── main.py                     # Application entry point
 
-```json
-{
-    "type": "Buy" / "Sell",
-    "price": 15.67,
-    "quantity": 25,
-    "ticker": "QNTX",
-    "timestamp": "2025-09-30T..."
-}
+tests/
+├── connection_test.py          # WebSocket connection tests
+└── order_test.py              # Order processing tests
 ```
 
-## Development
+## License
 
-The project uses an abstract base class (`BaseBroadcaster`) that can be extended to create different types of data broadcasters. The `OrderBroadcaster` is one implementation that focuses on trading orders.
-
-To create a custom broadcaster:
-
-1. Extend `BaseBroadcaster`
-2. Implement the `create_message()` method
-3. Initialize with your desired parameters
+This project is part of the QuantX trading platform ecosystem.
