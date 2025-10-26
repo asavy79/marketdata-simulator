@@ -18,8 +18,9 @@ class OrderBroadcaster(BaseBroadcaster):
         self.auth_service = auth_service
 
         self.orders = []
-        self.order_map = self.create_ticker_map(tickers)
 
+        self.order_map = self.create_ticker_map(tickers)
+        self.locks = {ticker: asyncio.Lock() for ticker in tickers}
         self.client_subscriptions = self.create_subscription_map(tickers)
 
         self.orders_lock = asyncio.Lock()
@@ -28,6 +29,7 @@ class OrderBroadcaster(BaseBroadcaster):
         ticker_map = {}
         for ticker in tickers:
             ticker_map[ticker] = {"bids": {}, "asks": {}}
+        return ticker_map
 
     def create_subscription_map(self, tickers: List[str]):
         return {ticker: set() for ticker in tickers}
@@ -44,18 +46,23 @@ class OrderBroadcaster(BaseBroadcaster):
 
         quantity = np.random.randint(1, 50)
 
+        ticker = "QNTX"
+
         order = {
             'id': uuid4().hex,
             'type': order_type,
             'price': price,
             'quantity': quantity,
-            'ticker': self.ticker,
-            'user_id': 'trading.bot@colorado.edu',
+            'ticker': ticker,
+            'user_id': 'tradingbot@colorado.edu',
             'timestamp': datetime.now().isoformat()
         }
 
         async with self.orders_lock:
             self.orders.append(order)
+
+        async with self.locks[ticker]:
+            self.order_map
 
         return {'order': order, 'type': 'update'}
 
@@ -66,14 +73,14 @@ class OrderBroadcaster(BaseBroadcaster):
         elif ticker not in self.client_subscriptions:
             await self.send_error(client, "INVALID_TICKER", f"Ticker: {ticker} is invalid")
         else:
-            self.client_subscriptions[ticker].add(client)
+            async with self.clients_lock:
+                self.client_subscriptions[ticker].add(client)
             await self.broadcast_batch(client)
 
     def extract_ticker(self, client: ServerConnection):
         try:
             raw_url = client.request.path
             ticker = raw_url.split("/")[-1].upper()
-            print(ticker)
             return ticker
         except Exception as e:
             print(e)
@@ -119,11 +126,18 @@ class OrderBroadcaster(BaseBroadcaster):
                 await websocket.send(json.dumps({"type": "error", "error_type": "VALUE_ERROR", "error_message": "Price must be positive"}))
                 return
             user_id = response.get("user_id", None)
+
+        ticker = "QNTX"
         order["user_id"] = user_id
         order['id'] = uuid4().hex
-        order['ticker'] = 'QNTX'
+        order['ticker'] = ticker
         async with self.orders_lock:
             self.orders.append(order)
+
+        side = "bids" if order["type"] == "Buy" else "asks"
+        async with self.locks[ticker]:
+            self.order_map[ticker][side][price] = self.order_map[ticker][side].get(
+                price, 0) + order['quantity']
         await asyncio.gather(
             websocket.send(json.dumps(
                 {"type": "order_success", "message": "Order placed successfully"})),
