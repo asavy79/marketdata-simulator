@@ -2,6 +2,8 @@
 
 A WebSocket-based order simulator with Firebase authentication, real-time order broadcasting, and orderbook management. This project is a part of the CUQuants QuantX platform, a system that helps educate members on market dynamics.
 
+![alt text](cu_quants.png)
+
 ## Overview
 
 The QuantX Order Simulator is a service that simulates trading environments by:
