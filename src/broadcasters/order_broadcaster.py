@@ -127,9 +127,8 @@ class OrderBroadcaster(BaseBroadcaster):
                 return
             user_id = response.get("user_id", None)
 
-        ticker = "QNTX"
+        ticker = order.get("ticker")
         order["user_id"] = user_id
-        order['id'] = uuid4().hex
         order['ticker'] = ticker
         async with self.orders_lock:
             self.orders.append(order)

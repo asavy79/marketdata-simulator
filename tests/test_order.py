@@ -86,3 +86,21 @@ class TestOrderService(unittest.IsolatedAsyncioTestCase):
         print(response_message)
 
         self.assertTrue(response_message["error_type"] == "TEST_ERROR")
+
+    async def test_zero_value_order(self):
+        pass
+
+    async def test_create_batch_message(self):
+        pass
+
+    async def test_extract_ticker(self):
+        pass
+
+    async def test_invalid_message_type(self):
+        pass
+
+    async def test_ticker_room(self):
+        pass
+
+    async def test_ticker_books(self):
+        pass
